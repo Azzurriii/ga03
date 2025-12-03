@@ -18,11 +18,18 @@ export function Inbox() {
   const pageSize = 50;
 
   // Data Fetching
-  const { data: mailboxes = [] } = useMailboxes();
+  const { data: mailboxes = [], isLoading: isLoadingMailboxes } = useMailboxes();
+  
+  // Debug mailboxes
+  useEffect(() => {
+    console.log('All mailboxes:', mailboxes);
+    console.log('Selected mailbox ID:', selectedMailboxId);
+  }, [mailboxes, selectedMailboxId]);
   
   // Set first mailbox as selected when mailboxes load
   useEffect(() => {
     if (mailboxes.length > 0 && selectedMailboxId === null) {
+      console.log('Setting first mailbox as selected:', mailboxes[0]);
       setSelectedMailboxId(mailboxes[0].id);
     }
   }, [mailboxes, selectedMailboxId]);
@@ -43,6 +50,27 @@ export function Inbox() {
 
   const emails = emailData?.data || [];
   const totalEmails = emailData?.meta.totalItems || 0;
+
+  // Get current mailbox info
+  const currentMailbox = mailboxes.find(m => m.id === selectedMailboxId);
+  
+  // Check if current mailbox is syncing
+  const isSyncing = currentMailbox?.syncStatus === 'syncing' || currentMailbox?.syncStatus === 'pending';
+  
+  // Debug logging
+  useEffect(() => {
+    console.log('Current mailbox:', currentMailbox);
+    console.log('Sync status:', currentMailbox?.syncStatus);
+    console.log('Is syncing:', isSyncing);
+  }, [currentMailbox, isSyncing]);
+  
+  // Auto-refresh emails when sync completes
+  useEffect(() => {
+    if (!isSyncing && currentMailbox?.syncStatus === 'synced') {
+      console.log('Sync completed, refreshing emails...');
+      refreshEmails();
+    }
+  }, [isSyncing, currentMailbox?.syncStatus]);
 
   // Reset selection and page when mailbox changes
   useEffect(() => {
@@ -153,6 +181,31 @@ export function Inbox() {
     <div className="flex flex-col h-screen bg-background">
       <Navigation />
       
+      {/* Loading State */}
+      {mailboxes.length === 0 && isLoadingMailboxes ? (
+        <div className="flex-1 flex items-center justify-center p-8">
+          <div className="max-w-md text-center space-y-4">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            <h2 className="text-xl font-semibold">Setting up your mailbox...</h2>
+            <p className="text-muted-foreground">
+              Connecting to Gmail and syncing your emails. This may take a moment.
+            </p>
+          </div>
+        </div>
+      ) : mailboxes.length === 0 ? (
+        <div className="flex-1 flex items-center justify-center p-8">
+          <div className="max-w-md text-center space-y-4">
+            <div className="text-6xl">⚠️</div>
+            <h2 className="text-2xl font-bold">Unable to Connect Mailbox</h2>
+            <p className="text-muted-foreground">
+              There was an issue connecting your Gmail account. Please try logging in again.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Check the backend terminal for error details.
+            </p>
+          </div>
+        </div>
+      ) : (
       <div className="flex-1 flex overflow-hidden relative">
         
         {/* Left Sidebar (Mailboxes) - Desktop (LG+) only */}
@@ -161,6 +214,7 @@ export function Inbox() {
             mailboxes={mailboxes}
             selectedMailboxId={selectedMailboxId}
             onSelectMailbox={setSelectedMailboxId}
+            currentMailbox={currentMailbox}
           />
         </aside>
 
@@ -178,6 +232,7 @@ export function Inbox() {
                 mailboxes={mailboxes}
                 selectedMailboxId={selectedMailboxId}
                 onSelectMailbox={setSelectedMailboxId}
+                currentMailbox={currentMailbox}
               />
             </div>
           </div>
@@ -202,6 +257,7 @@ export function Inbox() {
             selectedEmailId={selectedEmailId}
             onSelectEmail={setSelectedEmailId}
             isLoading={isLoadingEmails}
+            isSyncing={isSyncing}
             onSearch={setSearchTerm}
             onRefresh={refreshEmails}
             page={page}
@@ -227,15 +283,26 @@ export function Inbox() {
              )}
              
              <div className="flex-1 overflow-hidden">
-                <EmailDetail 
-                  email={selectedEmail} 
-                  onClose={() => setSelectedEmailId(null)}
-                />
+                {selectedMailboxId !== null ? (
+                  <>
+                    {console.log('Inbox - Rendering EmailDetail with mailboxId:', selectedMailboxId)}
+                    <EmailDetail 
+                      email={selectedEmail}
+                      mailboxId={selectedMailboxId}
+                      onClose={() => setSelectedEmailId(null)}
+                    />
+                  </>
+                ) : (
+                  <div className="flex h-full items-center justify-center text-muted-foreground p-8">
+                    <p>Loading mailbox...</p>
+                  </div>
+                )}
              </div>
           </div>
         </aside>
 
       </div>
+      )}
 
       {/* Keyboard Shortcuts Help */}
       <KeyboardShortcutsHelp />

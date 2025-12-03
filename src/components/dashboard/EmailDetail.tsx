@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { 
@@ -10,13 +11,24 @@ import {
   Clock,
   CornerUpLeft
 } from 'lucide-react';
+import { ComposeEmailModal } from './ComposeEmailModal';
 
 interface EmailDetailProps {
   email: any; // Backend email detail type
+  mailboxId: number;
   onClose?: () => void; // For mobile view
 }
 
-export function EmailDetail({ email, onClose }: EmailDetailProps) {
+export function EmailDetail({ email, mailboxId, onClose }: EmailDetailProps) {
+  const [composeMode, setComposeMode] = useState<'compose' | 'reply' | 'replyAll' | 'forward' | null>(null);
+  
+  // Reset compose mode when email changes
+  useEffect(() => {
+    setComposeMode(null);
+  }, [email?.id]);
+  
+  console.log('EmailDetail - mailboxId:', mailboxId, 'email:', email);
+  
   if (!email) {
     return (
       <div className="flex h-full flex-col items-center justify-center text-muted-foreground p-8 text-center bg-gray-50/50">
@@ -39,13 +51,13 @@ export function EmailDetail({ email, onClose }: EmailDetailProps) {
                <CornerUpLeft className="h-4 w-4" />
              </Button>
           )}
-          <Button variant="ghost" size="icon" title="Reply">
+          <Button variant="ghost" size="icon" title="Reply" onClick={() => setComposeMode('reply')}>
             <Reply className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" title="Reply All">
+          <Button variant="ghost" size="icon" title="Reply All" onClick={() => setComposeMode('replyAll')}>
             <ReplyAll className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" title="Forward">
+          <Button variant="ghost" size="icon" title="Forward" onClick={() => setComposeMode('forward')}>
             <Forward className="h-4 w-4" />
           </Button>
         </div>
@@ -65,7 +77,7 @@ export function EmailDetail({ email, onClose }: EmailDetailProps) {
       {/* Email Header */}
       <div className="p-6">
         <div className="flex items-start justify-between mb-6">
-           <h1 className="text-2xl font-bold leading-tight">{email.subject}</h1>
+           <h1 className="text-2xl font-bold leading-tight">{email.subject || '(No subject)'}</h1>
            {email.labels && email.labels.length > 0 && (
                <div className="flex gap-2">
                    {email.labels.map((label: string) => (
@@ -77,22 +89,22 @@ export function EmailDetail({ email, onClose }: EmailDetailProps) {
         
         <div className="flex items-start gap-4 mb-6">
           <Avatar>
-            <AvatarImage src={email.sender.avatar} />
-            <AvatarFallback>{email.sender.name.charAt(0)}</AvatarFallback>
+            <AvatarImage src={undefined} />
+            <AvatarFallback>{(email.fromName || email.fromEmail).charAt(0).toUpperCase()}</AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between">
-                <div className="font-semibold">{email.sender.name}</div>
+                <div className="font-semibold">{email.fromName || email.fromEmail}</div>
                 <div className="text-xs text-muted-foreground flex items-center gap-1">
                     <Clock className="h-3 w-3" />
-                    {new Date(email.timestamp).toLocaleString()}
+                    {new Date(email.receivedAt).toLocaleString()}
                 </div>
             </div>
             <div className="text-sm text-muted-foreground truncate">
-              {`<${email.sender.email}>`}
+              {`<${email.fromEmail}>`}
             </div>
             <div className="text-xs text-muted-foreground mt-1">
-                To: <span className="text-gray-700">Me</span>
+                To: <span className="text-gray-700">{email.toEmails && email.toEmails.length > 0 ? email.toEmails.join(', ') : 'Me'}</span>
             </div>
           </div>
         </div>
@@ -102,7 +114,7 @@ export function EmailDetail({ email, onClose }: EmailDetailProps) {
         {/* Email Body */}
         <div 
             className="prose prose-sm max-w-none text-gray-800"
-            dangerouslySetInnerHTML={{ __html: email.body }}
+            dangerouslySetInnerHTML={{ __html: email.bodyHtml || email.snippet || '' }}
         />
         
         {/* Attachments placeholder if needed */}
@@ -118,6 +130,27 @@ export function EmailDetail({ email, onClose }: EmailDetailProps) {
         )}
 
       </div>
+      
+      {/* Compose Modal - Only render when email exists */}
+      {email && (
+        <ComposeEmailModal
+          isOpen={composeMode !== null}
+          onClose={() => setComposeMode(null)}
+          mode={composeMode || 'compose'}
+          mailboxId={mailboxId}
+          originalEmail={{
+            subject: email.subject,
+            fromEmail: email.fromEmail,
+            fromName: email.fromName,
+            toEmails: email.toEmails,
+            ccEmails: email.ccEmails,
+            bodyHtml: email.bodyHtml,
+            bodyText: email.bodyText,
+            gmailMessageId: email.gmailMessageId,
+            gmailThreadId: email.gmailThreadId,
+          }}
+        />
+      )}
     </div>
   );
 }

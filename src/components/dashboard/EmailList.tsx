@@ -12,6 +12,7 @@ interface EmailListProps {
   selectedEmailId: number | null;
   onSelectEmail: (id: number) => void;
   isLoading: boolean;
+  isSyncing?: boolean;
   onSearch: (term: string) => void;
   onRefresh: () => void;
   page: number;
@@ -35,6 +36,7 @@ export function EmailList({
   selectedEmailId, 
   onSelectEmail, 
   isLoading,
+  isSyncing = false,
   onSearch,
   onRefresh,
   page,
@@ -59,6 +61,7 @@ export function EmailList({
   const startIndex = (page - 1) * pageSize + 1;
   const endIndex = Math.min(page * pageSize, totalEmails);
 
+  console.log('Rendering EmailList with emails:', emails);
   // Email row renderer for react-virtualized
   const rowRenderer = ({ index, key, style }: { index: number; key: string; style: React.CSSProperties }) => {
     const email = emails[index];
@@ -76,17 +79,17 @@ export function EmailList({
         )}
       >
         <div className="flex items-center justify-between gap-2">
-          <span className="font-medium truncate">{email.sender.name}</span>
+          <span className="font-medium truncate">{email.fromName || email.fromEmail}</span>
           <span className={cn(
               "text-xs whitespace-nowrap",
               !email.isRead ? "text-blue-600" : "text-muted-foreground"
           )}>
-            {formatDate(email.timestamp)}
+            {formatDate(email.receivedAt)}
           </span>
         </div>
-        <div className="text-sm truncate">{email.subject}</div>
+        <div className="text-sm truncate">{email.subject || '(No subject)'}</div>
         <div className="text-xs text-muted-foreground truncate">
-          {email.preview}
+          {email.snippet}
         </div>
       </div>
     );
@@ -106,9 +109,17 @@ export function EmailList({
           />
         </div>
         <Button variant="ghost" size="icon" onClick={onRefresh} title="Refresh (r)">
-          <RotateCw className="h-4 w-4" />
+          <RotateCw className={cn("h-4 w-4", isSyncing && "animate-spin")} />
         </Button>
       </div>
+
+      {/* Sync Status Banner */}
+      {isSyncing && (
+        <div className="bg-blue-50 border-b border-blue-200 px-4 py-2 flex items-center gap-2 text-sm text-blue-700">
+          <RotateCw className="h-4 w-4 animate-spin" />
+          <span>Syncing emails from Gmail...</span>
+        </div>
+      )}
 
       {/* Action Bar */}
       <div className="flex items-center gap-1 p-2 border-b bg-gray-50/50">

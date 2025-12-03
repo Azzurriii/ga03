@@ -2,11 +2,21 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { emailApi, type EmailQueryParams, type UpdateEmailData } from '@/services/emailApi';
 
 export const useMailboxes = () => {
-  return useQuery({
+  const query = useQuery({
     queryKey: ['mailboxes'],
     queryFn: emailApi.getMailboxes,
     staleTime: 2 * 60 * 1000, // Cache for 2 minutes
+    refetchInterval: (query) => {
+      // Poll every 3 seconds if any mailbox is syncing
+      const mailboxes = query.state.data as any[] | undefined;
+      const isSyncing = mailboxes?.some(m => 
+        m.syncStatus === 'syncing' || m.syncStatus === 'pending'
+      );
+      return isSyncing ? 3000 : false;
+    },
   });
+  
+  return query; // This includes data, isLoading, refetch, etc.
 };
 
 export const useEmails = (params: EmailQueryParams = {}) => {
@@ -76,12 +86,40 @@ export const useEmailMutations = () => {
     },
   });
 
+  const connectMailbox = useMutation({
+    mutationFn: (data: { code: string; codeVerifier?: string }) => 
+      emailApi.connectGmailMailbox(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['mailboxes'] });
+    },
+  });
+
+  const sendEmail = useMutation({
+    mutationFn: (data: {
+      mailboxId: number;
+      to: string[];
+      cc?: string[];
+      bcc?: string[];
+      subject: string;
+      body: string;
+      bodyHtml?: string;
+      inReplyTo?: string;
+      threadId?: string;
+    }) => emailApi.sendEmail(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['emails'] });
+      queryClient.invalidateQueries({ queryKey: ['mailboxes'] });
+    },
+  });
+
   return {
     updateEmail,
     toggleStar,
     markAsRead,
     deleteEmail,
     syncMailbox,
+    connectMailbox,
+    sendEmail,
   };
 };
 

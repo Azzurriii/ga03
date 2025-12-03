@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGoogleLogin } from '../hooks/useAuth';
+import { useEmailMutations } from '../hooks/useEmail';
 import { extractOAuthParams, retrieveAndValidateOAuthState } from '../utils/oauth';
 
 /**
@@ -10,6 +11,7 @@ import { extractOAuthParams, retrieveAndValidateOAuthState } from '../utils/oaut
 export default function OAuthCallback() {
   const navigate = useNavigate();
   const googleLoginMutation = useGoogleLogin();
+  const { connectMailbox } = useEmailMutations();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -39,14 +41,27 @@ export default function OAuthCallback() {
           return;
         }
 
-        // Exchange code for tokens via backend
-        await googleLoginMutation.mutateAsync({
-          code: params.code,
-          codeVerifier,
-        });
+        // Check if this is for adding an additional mailbox (not login)
+        const oauthPurpose = localStorage.getItem('oauth_purpose');
+        localStorage.removeItem('oauth_purpose');
 
-        // Success! Redirect to inbox
-        navigate('/inbox', { replace: true });
+        if (oauthPurpose === 'mailbox_connection') {
+          // Connect additional mailbox to existing logged-in user
+          await connectMailbox.mutateAsync({
+            code: params.code,
+            codeVerifier,
+          });
+          
+          navigate('/inbox', { replace: true });
+        } else {
+          // Login with Google (backend auto-creates mailbox)
+          await googleLoginMutation.mutateAsync({
+            code: params.code,
+            codeVerifier,
+          });
+
+          navigate('/inbox', { replace: true });
+        }
       } catch (err) {
         console.error('OAuth callback error:', err);
         setError(err instanceof Error ? err.message : 'Authentication failed');
@@ -54,7 +69,7 @@ export default function OAuthCallback() {
     };
 
     handleOAuthCallback();
-  }, [googleLoginMutation, navigate]);
+  }, [googleLoginMutation, connectMailbox, navigate]);
 
   if (error) {
     return (

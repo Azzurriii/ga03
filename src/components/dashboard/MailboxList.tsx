@@ -2,97 +2,168 @@ import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import {
   Inbox,
-  Send,
-  File,
-  Trash2,
-  Archive,
   Star,
-  Folder,
-  Plus,
-  X
+  FileText,
+  Send,
+  Archive,
+  AlertCircle,
+  Trash2,
+  ChevronDown,
+  Edit,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { ComposeEmailModal } from './ComposeEmailModal';
 
 interface MailboxListProps {
   mailboxes: any[]; // Backend mailbox type
   selectedMailboxId: number | null;
   onSelectMailbox: (id: number) => void;
+  currentMailbox?: any; // Current selected mailbox info
 }
 
-export function MailboxList({ mailboxes, selectedMailboxId, onSelectMailbox }: Readonly<MailboxListProps>) {
+export function MailboxList({ mailboxes, selectedMailboxId, onSelectMailbox, currentMailbox }: Readonly<MailboxListProps>) {
   const [isComposeOpen, setIsComposeOpen] = useState(false);
-  
-  const getIcon = () => {
-    return <Inbox className="h-4 w-4" />;
-  };
+  const [isManagementOpen, setIsManagementOpen] = useState(false);
+
+  // Mail folders with their counts (would come from backend in real app)
+  const folders = [
+    { id: 'inbox', name: 'Inbox', icon: Inbox, count: currentMailbox?.totalEmails || 0, section: 'core' },
+    { id: 'favorites', name: 'Favorites', icon: Star, count: 0, section: 'core' },
+    { id: 'drafts', name: 'Drafts', icon: FileText, count: 0, section: 'core' },
+    { id: 'sent', name: 'Sent', icon: Send, count: 0, section: 'core' },
+    { id: 'archive', name: 'Archive', icon: Archive, count: 0, section: 'management' },
+    { id: 'spam', name: 'Spam', icon: AlertCircle, count: 0, section: 'management' },
+    { id: 'bin', name: 'Bin', icon: Trash2, count: 0, section: 'management' },
+  ];
+
+  const corefolders = folders.filter(f => f.section === 'core');
+  const managementFolders = folders.filter(f => f.section === 'management');
 
   return (
-    <div className="flex flex-col gap-1 py-2">
-      {/* Compose Button */}
-      <div className="px-4 mb-2">
-        <button 
+    <div className="flex flex-col h-full bg-white">
+      {/* Account Header */}
+      <div className="p-4 border-b">
+        <div className="mb-3">
+          <div className="font-semibold text-foreground">
+            {currentMailbox?.email?.split('@')[0] || 'Baked Design'}
+          </div>
+          <div className="text-sm text-muted-foreground">
+            {currentMailbox?.email || 'work@baked.design'}
+          </div>
+        </div>
+
+        {/* Compose Button */}
+        <Button
           onClick={() => setIsComposeOpen(true)}
-          className="flex items-center justify-center w-full gap-2 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-full shadow-md font-medium transition-all"
+          variant="outline"
+          className="w-full justify-center gap-2"
         >
-           <Plus className="h-5 w-5" />
-           <span className="lg:inline">Compose</span>
-        </button>
+          <Edit className="h-4 w-4" />
+          <span>New email</span>
+        </Button>
       </div>
 
-      <h2 className="px-4 py-2 text-lg font-semibold tracking-tight">
-        Mailboxes
-      </h2>
-      <nav className="grid gap-1 px-2">
-        {mailboxes.map((mailbox) => (
-          <button
-            key={mailbox.id}
-            onClick={() => onSelectMailbox(mailbox.id)}
-            className={cn(
-              "flex items-center justify-between whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
-              selectedMailboxId === mailbox.id
-                ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                : "hover:bg-muted hover:text-accent-foreground text-gray-600"
-            )}
-          >
-            <div className="flex items-center gap-3">
-              {getIcon()}
-              <span>{mailbox.email}</span>
-            </div>
-            {mailbox.unreadCount && mailbox.unreadCount > 0 && (
-              <span className={cn(
-                "ml-auto text-xs",
-                selectedMailboxId === mailbox.id 
-                  ? "text-primary-foreground" 
-                  : "text-muted-foreground"
-              )}>
-                {mailbox.unreadCount}
-              </span>
-            )}
-          </button>
-        ))}
-      </nav>
-
-      {/* Compose Modal Mockup */}
-      {isComposeOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className="bg-white w-full max-w-lg rounded-lg shadow-xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-200">
-                <div className="bg-gray-100 px-4 py-3 border-b flex justify-between items-center">
-                    <h3 className="font-semibold text-gray-800">New Message</h3>
-                    <button onClick={() => setIsComposeOpen(false)} className="text-gray-500 hover:text-gray-700">
-                        <X className="h-5 w-5" />
-                    </button>
-                </div>
-                <div className="p-4 space-y-4 flex-1 overflow-y-auto">
-                    <input placeholder="To" className="w-full p-2 border-b focus:outline-none focus:border-blue-500 transition-colors" />
-                    <input placeholder="Subject" className="w-full p-2 border-b focus:outline-none focus:border-blue-500 transition-colors" />
-                    <textarea placeholder="Message..." className="w-full h-40 p-2 resize-none focus:outline-none" />
-                </div>
-                <div className="p-3 border-t flex justify-end gap-2 bg-gray-50">
-                     <button onClick={() => setIsComposeOpen(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-200 rounded transition-colors">Discard</button>
-                     <button onClick={() => setIsComposeOpen(false)} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium transition-colors">Send</button>
-                </div>
-            </div>
+      {/* Core Folders */}
+      <div className="flex-1 overflow-y-auto py-2">
+        <div className="px-3 mb-2">
+          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1 px-2">
+            Core
+          </div>
         </div>
-      )}
+
+        <nav className="space-y-0.5 px-2">
+          {corefolders.map((folder) => {
+            const Icon = folder.icon;
+            return (
+              <Button
+                key={folder.id}
+                variant="ghost"
+                className="w-full justify-between h-auto py-2 px-3 font-normal"
+              >
+                <div className="flex items-center gap-3">
+                  <Icon className="h-4 w-4" />
+                  <span>{folder.name}</span>
+                </div>
+                {folder.count > 0 && (
+                  <span className="text-xs text-muted-foreground">{folder.count}</span>
+                )}
+              </Button>
+            );
+          })}
+        </nav>
+
+        {/* Management Section */}
+        <div className="mt-4 px-3">
+          <Button
+            variant="ghost"
+            onClick={() => setIsManagementOpen(!isManagementOpen)}
+            className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1 px-2 h-auto hover:text-foreground"
+          >
+            <span>Management</span>
+            <ChevronDown className={cn("h-3 w-3 transition-transform", isManagementOpen && "rotate-180")} />
+          </Button>
+        </div>
+
+        {isManagementOpen && (
+          <nav className="space-y-0.5 px-2">
+            {managementFolders.map((folder) => {
+              const Icon = folder.icon;
+              return (
+                <Button
+                  key={folder.id}
+                  variant="ghost"
+                  className="w-full justify-between h-auto py-2 px-3 font-normal"
+                >
+                  <div className="flex items-center gap-3">
+                    <Icon className="h-4 w-4" />
+                    <span>{folder.name}</span>
+                  </div>
+                  {folder.count > 0 && (
+                    <span className="text-xs text-muted-foreground">{folder.count}</span>
+                  )}
+                </Button>
+              );
+            })}
+          </nav>
+        )}
+
+        {/* Mailbox Switcher (if multiple mailboxes) */}
+        {mailboxes.length > 1 && (
+          <div className="mt-6 px-3">
+            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-2">
+              Accounts
+            </div>
+            <div className="space-y-1 px-2">
+              {mailboxes.map((mailbox) => (
+                <Button
+                  key={mailbox.id}
+                  variant="ghost"
+                  onClick={() => onSelectMailbox(mailbox.id)}
+                  className={cn(
+                    "w-full justify-start gap-2 h-auto py-2 px-3 font-normal",
+                    selectedMailboxId === mailbox.id && "bg-accent"
+                  )}
+                >
+                  <Avatar className="h-6 w-6">
+                    <AvatarFallback className="text-xs">
+                      {mailbox.email.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="truncate flex-1 text-left">{mailbox.email}</span>
+                </Button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Compose Modal */}
+      <ComposeEmailModal
+        isOpen={isComposeOpen}
+        onClose={() => setIsComposeOpen(false)}
+        mode="compose"
+      />
     </div>
   );
 }

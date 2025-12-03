@@ -13,21 +13,29 @@ export const authKeys = {
 export function useLogin() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { setAccessToken } = useAuthStore();
+  const { setUser, setAccessToken } = useAuthStore();
 
   return useMutation({
     mutationFn: async (credentials: LoginCredentials) => {
       const response = await authApi.login(credentials);
       return response;
     },
-    onSuccess: (data: AuthResponse) => {
+    onSuccess: async (data: AuthResponse) => {
       // Update auth store with access token
       setAccessToken(data.tokens.accessToken);
       
       // Store refresh token
       setRefreshToken(data.refreshToken);
       
-      // Fetch user profile and update store
+      // Fetch user profile immediately
+      try {
+        const user = await authApi.getProfile();
+        setUser(user, data.tokens.accessToken);
+      } catch (error) {
+        console.error('Failed to fetch user profile:', error);
+      }
+      
+      // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: authKeys.user() });
       
       // Navigate to dashboard
@@ -43,19 +51,27 @@ export function useLogin() {
 export function useRegister() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { setAccessToken } = useAuthStore();
+  const { setUser, setAccessToken } = useAuthStore();
 
   return useMutation({
     mutationFn: async (data: RegisterData) => {
       const response = await authApi.register(data);
       return response;
     },
-    onSuccess: (data: AuthResponse) => {
+    onSuccess: async (data: AuthResponse) => {
       // Update auth store
       setAccessToken(data.tokens.accessToken);
       
       // Store refresh token
       setRefreshToken(data.refreshToken);
+      
+      // Fetch user profile immediately
+      try {
+        const user = await authApi.getProfile();
+        setUser(user, data.tokens.accessToken);
+      } catch (error) {
+        console.error('Failed to fetch user profile:', error);
+      }
       
       // Invalidate user query
       queryClient.invalidateQueries({ queryKey: authKeys.user() });
@@ -86,24 +102,39 @@ export function useInitiateGoogleOAuth() {
 export function useGoogleLogin() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { setAccessToken } = useAuthStore();
+  const { setUser, setAccessToken } = useAuthStore();
 
   return useMutation({
     mutationFn: async (data: GoogleAuthData) => {
       const response = await authApi.googleAuth(data);
       return response;
     },
-    onSuccess: (data: AuthResponse) => {
-      // Update auth store
+    onSuccess: async (data: AuthResponse) => {
+      // Update auth store with access token first
       setAccessToken(data.tokens.accessToken);
       
       // Store refresh token
       setRefreshToken(data.refreshToken);
       
-      // Invalidate user query
-      queryClient.invalidateQueries({ queryKey: authKeys.user() });
+      // Fetch user profile immediately
+      try {
+        const user = await authApi.getProfile();
+        setUser(user, data.tokens.accessToken);
+      } catch (error) {
+        console.error('Failed to fetch user profile:', error);
+      }
       
-      // Navigate to dashboard
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: authKeys.user() });
+      queryClient.invalidateQueries({ queryKey: ['mailboxes'] });
+      queryClient.invalidateQueries({ queryKey: ['emails'] });
+      
+      // Backend creates mailbox asynchronously - wait a bit then refetch
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['mailboxes'] });
+      }, 2000);
+      
+      // Navigate to inbox
       navigate('/inbox');
     },
     onError: (error: Error) => {

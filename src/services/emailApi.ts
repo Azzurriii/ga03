@@ -101,6 +101,18 @@ export interface ConnectMailboxData {
   codeVerifier?: string;
 }
 
+export interface SendEmailData {
+  mailboxId: number;
+  to: string[];
+  cc?: string[];
+  bcc?: string[];
+  subject: string;
+  body: string;
+  bodyHtml?: string;
+  inReplyTo?: string;
+  threadId?: string;
+}
+
 export const emailApi = {
   // Mailbox operations
   getMailboxes: async (): Promise<Mailbox[]> => {
@@ -114,7 +126,7 @@ export const emailApi = {
   },
 
   connectGmailMailbox: async (data: ConnectMailboxData): Promise<Mailbox> => {
-    const response = await apiClient.post<Mailbox>('/mailboxes/connect/gmail', data);
+    const response = await apiClient.post<Mailbox>('/mailboxes/connect', data);
     return response.data;
   },
 
@@ -134,6 +146,11 @@ export const emailApi = {
 
   getEmail: async (emailId: number): Promise<EmailDetail> => {
     const response = await apiClient.get<EmailDetail>(`/emails/${emailId}`);
+    return response.data;
+  },
+
+  sendEmail: async (data: SendEmailData): Promise<{ messageId: string }> => {
+    const response = await apiClient.post<{ messageId: string }>('/emails/send', data);
     return response.data;
   },
 
