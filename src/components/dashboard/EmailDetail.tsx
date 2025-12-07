@@ -9,9 +9,11 @@ import {
   MoreVertical, 
   Star, 
   Clock,
-  CornerUpLeft
+  CornerUpLeft,
+  Download
 } from 'lucide-react';
 import { ComposeEmailModal } from './ComposeEmailModal';
+import apiClient from '@/services/apiClient';
 
 interface EmailDetailProps {
   email: any; // Backend email detail type
@@ -21,6 +23,28 @@ interface EmailDetailProps {
 
 export function EmailDetail({ email, mailboxId, onClose }: EmailDetailProps) {
   const [composeMode, setComposeMode] = useState<'compose' | 'reply' | 'replyAll' | 'forward' | null>(null);
+  
+  const handleDownloadAttachment = async (attachmentId: number, filename: string) => {
+    try {
+      const response = await apiClient.get(`/attachments/${attachmentId}`, {
+        responseType: 'blob',
+      });
+      
+      // Create a blob URL and trigger download
+      const blob = new Blob([response.data]);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to download attachment:', error);
+      alert('Failed to download attachment. Please try again.');
+    }
+  };
   
   // Reset compose mode when email changes
   useEffect(() => {
@@ -117,14 +141,33 @@ export function EmailDetail({ email, mailboxId, onClose }: EmailDetailProps) {
             dangerouslySetInnerHTML={{ __html: email.bodyHtml || email.snippet || '' }}
         />
         
-        {/* Attachments placeholder if needed */}
-        {email.hasAttachments && (
+        {/* Attachments */}
+        {email.attachments && email.attachments.length > 0 && (
             <div className="mt-8 p-4 border rounded bg-gray-50">
-                <p className="text-sm font-medium mb-2">Attachments</p>
-                <div className="flex gap-2">
-                    <div className="h-16 w-24 bg-gray-200 rounded flex items-center justify-center text-xs text-gray-500">
-                        File.pdf
-                    </div>
+                <p className="text-sm font-medium mb-2">
+                  Attachments ({email.attachments.length})
+                </p>
+                <div className="flex flex-wrap gap-2">
+                    {email.attachments.map((attachment: any) => (
+                        <button
+                            key={attachment.id}
+                            onClick={() => handleDownloadAttachment(attachment.id, attachment.filename)}
+                            className="group flex items-center gap-2 p-3 bg-white border rounded hover:border-blue-500 hover:shadow-sm transition-all max-w-xs cursor-pointer"
+                        >
+                            <div className="flex-shrink-0 w-10 h-10 bg-blue-100 rounded flex items-center justify-center text-blue-600 text-xs font-semibold">
+                                {attachment.filename.split('.').pop()?.toUpperCase() || 'FILE'}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-900 truncate group-hover:text-blue-600">
+                                    {attachment.filename}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                    {(attachment.size / 1024).toFixed(1)} KB
+                                </p>
+                            </div>
+                            <Download className="h-4 w-4 text-gray-400 group-hover:text-blue-600" />
+                        </button>
+                    ))}
                 </div>
             </div>
         )}
