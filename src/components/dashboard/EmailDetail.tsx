@@ -11,7 +11,8 @@ import {
   Star, 
   Clock,
   CornerUpLeft,
-  Download
+  Download,
+  Mail
 } from 'lucide-react';
 import { ComposeEmailModal } from './ComposeEmailModal';
 import apiClient from '@/services/apiClient';
@@ -36,6 +37,12 @@ export function EmailDetail({ email, mailboxId, onClose }: EmailDetailProps) {
   const handleDelete = () => {
     if (email && confirm('Are you sure you want to delete this email?')) {
       deleteEmail.mutate(email.id);
+    }
+  };
+
+  const handleMarkAsUnread = () => {
+    if (email) {
+      markAsRead.mutate({ id: email.id, isRead: false });
     }
   };
   
@@ -101,6 +108,15 @@ export function EmailDetail({ email, mailboxId, onClose }: EmailDetailProps) {
           </Button>
           <Button variant="ghost" size="icon" title="Forward" onClick={() => setComposeMode('forward')}>
             <Forward className="h-4 w-4" />
+          </Button>
+          <div className="h-6 w-px bg-gray-300 mx-1" />
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            title="Mark as unread"
+            onClick={handleMarkAsUnread}
+          >
+            <Mail className="h-4 w-4" />
           </Button>
         </div>
         <div className="flex items-center gap-2">
