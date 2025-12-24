@@ -31,29 +31,42 @@ export function KanbanBoard({ emails, mailboxId }: KanbanBoardProps) {
 
     emails.forEach((email) => {
       // Filter out snoozed emails
-      if (email.snoozedUntil && new Date(email.snoozedUntil) > new Date()) {
+      if (email.isSnoozed || (email.snoozedUntil && new Date(email.snoozedUntil) > new Date())) {
         return;
       }
+      
+      let targetColumn = null;
 
-      // Find column by matching Gmail labels or taskStatus
-      let targetColumn = dbColumns.find(col => 
-        col.gmailLabelId && email.labels?.includes(col.gmailLabelId)
-      );
+      // Match based on taskStatus first (for custom columns)
+      if (email.taskStatus === 'todo' || email.taskStatus === 'to_do') {
+        targetColumn = dbColumns.find(c => c.title.toLowerCase() === 'to do' || c.title.toLowerCase() === 'todo');
+      } else if (email.taskStatus === 'in_progress') {
+        targetColumn = dbColumns.find(c => c.title.toLowerCase() === 'in progress');
+      } else if (email.taskStatus === 'done') {
+        targetColumn = dbColumns.find(c => c.title.toLowerCase() === 'done');
+      }
 
+      // If no taskStatus match, check Gmail label-based columns
       if (!targetColumn) {
-        // Fallback to taskStatus mapping for default flow
-        if (email.taskStatus === 'todo') {
-          targetColumn = dbColumns.find(c => c.title.toLowerCase() === 'todo' || c.title.toLowerCase() === 'important');
-        } else if (email.taskStatus === 'in_progress') {
-          targetColumn = dbColumns.find(c => c.title.toLowerCase() === 'in progress');
-        } else if (email.taskStatus === 'done') {
-          targetColumn = dbColumns.find(c => c.title.toLowerCase() === 'done');
+        // Check for Starred column
+        if (email.isStarred) {
+          targetColumn = dbColumns.find(col => col.gmailLabelId === 'STARRED');
+        }
+        
+        // Check for Important column (based on category or other criteria)
+        if (!targetColumn && email.category === 'important') {
+          targetColumn = dbColumns.find(col => col.gmailLabelId === 'IMPORTANT');
+        }
+        
+        // Default to Inbox for emails without specific categorization
+        if (!targetColumn && email.taskStatus === 'none') {
+          targetColumn = dbColumns.find(col => col.gmailLabelId === 'INBOX');
         }
       }
       
-      // Fallback to "Inbox" or the first column
+      // Final fallback to Inbox or first column
       const targetId = targetColumn?.id.toString() || 
-                      dbColumns.find(c => c.title.toLowerCase() === 'inbox')?.id.toString() || 
+                      dbColumns.find(c => c.gmailLabelId === 'INBOX')?.id.toString() || 
                       dbColumns[0]?.id.toString();
 
       if (targetId && organized[targetId]) {
